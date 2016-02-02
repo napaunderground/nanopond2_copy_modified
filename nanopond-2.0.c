@@ -296,7 +296,7 @@
 #ifdef _MSC_VER
 #include <SDL.h>
 #else
-#include <SDL/SDL.h>
+#include "SDL.h"
 #endif /* _MSC_VER */
 #endif /* USE_SDL */
 
