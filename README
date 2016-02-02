@@ -1,0 +1,10 @@
+README
+
+Compiling SDL-1.2.15 
+	OSX:
+	0) Go to the source directory and run ./autogen.sh.
+	1) Go to your build directory.
+	2) ~/local/src/nanopond/SDL-1.2.15/configure --prefix=${HOME}/local/install/SDL-1.2.15
+	3) make
+	
+	
