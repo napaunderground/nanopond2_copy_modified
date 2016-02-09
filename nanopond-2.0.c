@@ -494,7 +494,7 @@ static void doReport(const uint64_t clock)
 	 "%" PRIu64 "," /* maxGeneration */			\
 	 "%" PRIu64 "," /* statCounters.viableCellsReplaced */	\
 	 "%" PRIu64 "," /* statCounters.viableCellsKilled */	\
-	 "%" PRIu64 ",",/* statCounters.viableCellShares */	\
+	 "%" PRIu64    ,/* statCounters.viableCellShares */	\
 	    clock,
 	    totalEnergy,
 	    totalActiveCells,
