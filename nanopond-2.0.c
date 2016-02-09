@@ -232,6 +232,7 @@
 
 /* ----------------------------------------------------------------------- */
 
+#include <inttypes.h>	// See http://pubs.opengroup.org/onlinepubs/009695399/basedefs/inttypes.h.html
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -486,15 +487,22 @@ static void doReport(const uint64_t clock)
   /* Look here to get the columns in the CSV output */
   
   /* The first five are here and are self-explanatory */
-  printf("%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu",
-    (uint64_t)clock,
-    (uint64_t)totalEnergy,
-    (uint64_t)totalActiveCells,
-    (uint64_t)totalViableReplicators,
-    (uint64_t)maxGeneration,
-    (uint64_t)statCounters.viableCellsReplaced,
-    (uint64_t)statCounters.viableCellsKilled,
-    (uint64_t)statCounters.viableCellShares
+  printf("%" PRIu64  "," /* clock */				\
+	 "%" PRIu64  "," /* totalEnergy */			\
+	 "%" PRIu64  "," /* totalActiveCells */			\
+	 "%" PRIu64  "," /* totalViableReplicators */		\
+	 "%" PRIuPTR "," /* maxGeneration */			\
+	 "%" PRIuPTR "," /* statCounters.viableCellsReplaced */	\
+	 "%" PRIuPTR "," /* statCounters.viableCellsKilled */	\
+	 "%" PRIuPTR ",",/* statCounters.viableCellShares */	\
+	    clock,
+	    totalEnergy,
+	    totalActiveCells,
+	    totalViableReplicators,
+	    maxGeneration,
+	    statCounters.viableCellsReplaced,
+	    statCounters.viableCellsKilled,
+	    statCounters.viableCellShares
     );
   
   /* The next 16 are the average frequencies of execution for each
