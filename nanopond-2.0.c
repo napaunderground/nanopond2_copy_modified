@@ -177,14 +177,21 @@
 /* Tunable parameters                                                      */
 /* ----------------------------------------------------------------------- */
 
+/* Tick length.  Simpler to think about frequencies in terms of ticks 
+ * rather than numbers with lots of trailing zeros.*/
+
+#define TICK 10000ULL
+
 /* Iteration to stop at. Comment this out to run forever. */
-/* #define STOP_AT 150000000000ULL */
+#define STOP_AT (10000 * TICK)
 
 /* Frequency of comprehensive reports-- lower values will provide more
  * info while slowing down the simulation. Higher values will give less
  * frequent updates. */
-/* This is also the frequency of screen refreshes if SDL is enabled. */
-#define REPORT_FREQUENCY 100000
+#define REPORT_FREQUENCY (10 * TICK)
+
+/* SDL refresh frequency */
+#define SDL_REFRESH_FREQUENCY (10 * TICK)
 
 /* Frequency at which to dump all viable replicators (generation > 2)
  * to a file named <clock>.dump in the current directory.  Comment
@@ -192,7 +199,7 @@
  * semi-human-readable if you look at the big switch() statement
  * in the main loop to see what instruction is signified by each
  * four-bit value. */
-#define DUMP_FREQUENCY 100000000
+#define DUMP_FREQUENCY (100 * TICK)
 
 /* Mutation rate -- range is from 0 (none) to 0xffffffff (all mutations!) */
 /* To get it from a float probability from 0.0 to 1.0, multiply it by
@@ -232,7 +239,7 @@
 
 /* ----------------------------------------------------------------------- */
 
-#include <inttypes.h>	// See http://pubs.opengroup.org/onlinepubs/009695399/basedefs/inttypes.h.html
+#include <inttypes.h>	
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -837,8 +844,11 @@ int main(int argc,char **argv)
     /* Clock is incremented at the start, so it starts at 1 */
     if (!(++clock % REPORT_FREQUENCY)) {
       doReport(clock);
-      /* SDL display is also refreshed every REPORT_FREQUENCY */
+    }
+      
 #ifdef USE_SDL
+    /* Refresh the screen and check for input if SDL enabled */
+    if (!(clock % SDL_REFRESH_FREQUENCY)){
       while (SDL_PollEvent(&sdlEvent)) {
         if (sdlEvent.type == SDL_QUIT) {
           fprintf(stderr,"[QUIT] Quit signal received!\n");
