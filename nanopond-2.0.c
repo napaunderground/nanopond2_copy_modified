@@ -150,7 +150,7 @@
  * since MS tends to ignore C/C++ standards. If stdint.h isn't around,
  * you can fudge it like this:
  *
- * #define uintptr_t unsigned long (or whatever your machine size word is)
+ * #define uint64_t unsigned long (or whatever your machine size word is)
  * #define uint8_t unsigned char
  * #define uint16_t unsigned short
  * #define uint64_t unsigned long long (or whatever is your 64-bit int)
@@ -232,6 +232,7 @@
 
 /* ----------------------------------------------------------------------- */
 
+#include <inttypes.h>	// See http://pubs.opengroup.org/onlinepubs/009695399/basedefs/inttypes.h.html
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -362,10 +363,10 @@ static inline uint32_t genrand_int32()
  * POND_DEPTH and the size of the machine word. (The multiplication
  * by two is due to the fact that there are two four-bit values in
  * each eight-bit byte.) */
-#define POND_DEPTH_SYSWORDS (POND_DEPTH / (sizeof(uintptr_t) * 2))
+#define POND_DEPTH_SYSWORDS (POND_DEPTH / (sizeof(uint64_t) * 2))
 
 /* Number of bits in a machine-size word */
-#define SYSWORD_BITS (sizeof(uintptr_t) * 8)
+#define SYSWORD_BITS (sizeof(uint64_t) * 8)
 
 /* Constants representing neighbors in the 2D grid. */
 #define N_LEFT 0
@@ -379,7 +380,7 @@ static inline uint32_t genrand_int32()
 #define EXEC_START_BIT 4
 
 /* Number of bits set in binary numbers 0000 through 1111 */
-static const uintptr_t BITS_IN_FOURBIT_WORD[16] = { 0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4 };
+static const uint64_t BITS_IN_FOURBIT_WORD[16] = { 0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4 };
 
 /**
  * Structure for a cell in the pond
@@ -397,14 +398,14 @@ struct Cell
   uint64_t lineage;
   
   /* Generations start at 0 and are incremented from there. */
-  uintptr_t generation;
+  uint64_t generation;
   
   /* Energy level of this cell */
-  uintptr_t energy;
+  uint64_t energy;
 
   /* Memory space for cell genome (genome is stored as four
    * bit instructions packed into machine size words) */
-  uintptr_t genome[POND_DEPTH_SYSWORDS];
+  uint64_t genome[POND_DEPTH_SYSWORDS];
 };
 
 /* The pond is a 2D array of cells */
@@ -419,13 +420,13 @@ const char *colorSchemeName[2] = { "KINSHIP", "LINEAGE" };
  *
  * @return Random number
  */
-static inline uintptr_t getRandom()
+static inline uint64_t getRandom()
 {
   /* A good optimizing compiler should optimize out this if */
   /* This is to make it work on 64-bit boxes */
-  if (sizeof(uintptr_t) == 8)
-    return (uintptr_t)((((uint64_t)genrand_int32()) << 32) ^ ((uint64_t)genrand_int32()));
-  else return (uintptr_t)genrand_int32();
+  if (sizeof(uint64_t) == 8)
+    return (uint64_t)((((uint64_t)genrand_int32()) << 32) ^ ((uint64_t)genrand_int32()));
+  else return (uint64_t)genrand_int32();
 }
 
 /**
@@ -441,13 +442,13 @@ struct PerReportStatCounters
   double cellExecutions;
   
   /* Number of viable cells replaced by other cells' offspring */
-  uintptr_t viableCellsReplaced;
+  uint64_t viableCellsReplaced;
   
   /* Number of viable cells KILLed */
-  uintptr_t viableCellsKilled;
+  uint64_t viableCellsKilled;
   
   /* Number of successful SHARE operations */
-  uintptr_t viableCellShares;
+  uint64_t viableCellShares;
 };
 
 /* Global statistics counters */
@@ -462,12 +463,12 @@ static void doReport(const uint64_t clock)
 {
   static uint64_t lastTotalViableReplicators = 0;
   
-  uintptr_t x,y;
+  uint64_t x,y;
   
   uint64_t totalActiveCells = 0;
   uint64_t totalEnergy = 0;
   uint64_t totalViableReplicators = 0;
-  uintptr_t maxGeneration = 0;
+  uint64_t maxGeneration = 0;
   
   for(x=0;x<POND_SIZE_X;++x) {
     for(y=0;y<POND_SIZE_Y;++y) {
@@ -486,15 +487,22 @@ static void doReport(const uint64_t clock)
   /* Look here to get the columns in the CSV output */
   
   /* The first five are here and are self-explanatory */
-  printf("%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu",
-    (uint64_t)clock,
-    (uint64_t)totalEnergy,
-    (uint64_t)totalActiveCells,
-    (uint64_t)totalViableReplicators,
-    (uint64_t)maxGeneration,
-    (uint64_t)statCounters.viableCellsReplaced,
-    (uint64_t)statCounters.viableCellsKilled,
-    (uint64_t)statCounters.viableCellShares
+  printf("%" PRIu64 "," /* clock */				\
+	 "%" PRIu64 "," /* totalEnergy */			\
+	 "%" PRIu64 "," /* totalActiveCells */			\
+	 "%" PRIu64 "," /* totalViableReplicators */		\
+	 "%" PRIu64 "," /* maxGeneration */			\
+	 "%" PRIu64 "," /* statCounters.viableCellsReplaced */	\
+	 "%" PRIu64 "," /* statCounters.viableCellsKilled */	\
+	 "%" PRIu64    ,/* statCounters.viableCellShares */	\
+	    clock,
+	    totalEnergy,
+	    totalActiveCells,
+	    totalViableReplicators,
+	    maxGeneration,
+	    statCounters.viableCellsReplaced,
+	    statCounters.viableCellsKilled,
+	    statCounters.viableCellShares
     );
   
   /* The next 16 are the average frequencies of execution for each
@@ -530,10 +538,10 @@ static void doDump(const uint64_t clock)
 {
   char buf[POND_DEPTH*2];
   FILE *d;
-  uintptr_t x,y,wordPtr,shiftPtr,inst,stopCount,i;
+  uint64_t x,y,wordPtr,shiftPtr,inst,stopCount,i;
   struct Cell *pptr;
   
-  sprintf(buf,"%llu.dump.csv",clock);
+  sprintf(buf,"%" PRIu64 ".dump.csv",clock);
   d = fopen(buf,"w");
   if (!d) {
     fprintf(stderr,"[WARNING] Could not open %s for writing.\n",buf);
@@ -546,11 +554,11 @@ static void doDump(const uint64_t clock)
     for(y=0;y<POND_SIZE_Y;++y) {
       pptr = &pond[x][y];
       if (pptr->energy&&(pptr->generation > 2)) {
-        fprintf(d,"%llu,%llu,%llu,%llu,",
-          (uint64_t)pptr->ID,
-          (uint64_t)pptr->parentID,
-          (uint64_t)pptr->lineage,
-          (uint64_t)pptr->generation);
+        fprintf(d,"%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",",
+          pptr->ID,
+          pptr->parentID,
+          pptr->lineage,
+          pptr->generation);
         wordPtr = 0;
         shiftPtr = 0;
         stopCount = 0;
@@ -562,7 +570,7 @@ static void doDump(const uint64_t clock)
            * a LOOP/REP pair that's always false. In any case, this
            * would always result in our *underestimating* the size of
            * the genome and would never result in an overestimation. */
-          fprintf(d,"%x",inst);
+          fprintf(d,"%" PRIu64,inst);
           if (inst == 0xf) { /* STOP */
             if (++stopCount >= 4)
               break;
@@ -590,7 +598,7 @@ static void doDump(const uint64_t clock)
  */
 static void dumpCell(FILE *file, struct Cell *cell)
 {
-  uintptr_t wordPtr,shiftPtr,inst,stopCount,i;
+  uint64_t wordPtr,shiftPtr,inst,stopCount,i;
 
   if (cell->energy&&(cell->generation > 2)) {
     wordPtr = 0;
@@ -604,7 +612,7 @@ static void dumpCell(FILE *file, struct Cell *cell)
        * a LOOP/REP pair that's always false. In any case, this
        * would always result in our *underestimating* the size of
        * the genome and would never result in an overestimation. */
-      fprintf(file,"%x",inst);
+      fprintf(file,"%" PRIu64,inst);
       if (inst == 0xf) { /* STOP */
         if (++stopCount >= 4)
           break;
@@ -628,7 +636,7 @@ static void dumpCell(FILE *file, struct Cell *cell)
  * @param dir Direction to get neighbor from
  * @return Pointer to neighboring cell
  */
-static inline struct Cell *getNeighbor(const uintptr_t x,const uintptr_t y,const uintptr_t dir)
+static inline struct Cell *getNeighbor(const uint64_t x,const uint64_t y,const uint64_t dir)
 {
   /* Space is toroidal; it wraps at edges */
   switch(dir) {
@@ -652,7 +660,7 @@ static inline struct Cell *getNeighbor(const uintptr_t x,const uintptr_t y,const
  * @param sense The "sense" of this interaction
  * @return True or false (1 or 0)
  */
-static inline int accessAllowed(struct Cell *const c2,const uintptr_t c1guess,int sense)
+static inline int accessAllowed(struct Cell *const c2,const uint64_t c1guess,int sense)
 {
   /* Access permission is more probable if they are more similar in sense 0,
    * and more probable if they are different in sense 1. Sense 0 is used for
@@ -668,7 +676,7 @@ static inline int accessAllowed(struct Cell *const c2,const uintptr_t c1guess,in
  */
 static inline uint8_t getColor(struct Cell *c)
 {
-  uintptr_t i,j,word,sum,opcode,skipnext;
+  uint64_t i,j,word,sum,opcode,skipnext;
 
   if (c->energy) {
     switch(colorScheme) {
@@ -686,7 +694,7 @@ static inline uint8_t getColor(struct Cell *c)
         if (c->generation > 1) {
           sum = 0;
           skipnext = 0;
-          for(i=0;i<POND_DEPTH_SYSWORDS&&(c->genome[i] != ~((uintptr_t)0));++i) {
+          for(i=0;i<POND_DEPTH_SYSWORDS&&(c->genome[i] != ~((uint64_t)0));++i) {
             word = c->genome[i];
             for(j=0;j<SYSWORD_BITS/4;++j,word >>= 4) {
               /* We ignore 0xf's here, because otherwise very similar genomes
@@ -730,10 +738,10 @@ static inline uint8_t getColor(struct Cell *c)
  */
 int main(int argc,char **argv)
 {
-  uintptr_t i,x,y;
+  uint64_t i,x,y;
   
   /* Buffer used for execution output of candidate offspring */
-  uintptr_t outputBuf[POND_DEPTH_SYSWORDS];
+  uint64_t outputBuf[POND_DEPTH_SYSWORDS];
   
   /* Seed and init the random number generator */
   init_genrand(time(NULL));
@@ -759,7 +767,7 @@ int main(int argc,char **argv)
     fprintf(stderr, "*** Unable to create SDL window: %s ***\n", SDL_GetError());
     exit(1);
   }
-  const uintptr_t sdlPitch = screen->pitch;
+  const uint64_t sdlPitch = screen->pitch;
 #endif /* USE_SDL */
  
   /* Clear the pond and initialize all genomes
@@ -772,7 +780,7 @@ int main(int argc,char **argv)
       pond[x][y].generation = 0;
       pond[x][y].energy = 0;
       for(i=0;i<POND_DEPTH_SYSWORDS;++i)
-        pond[x][y].genome[i] = ~((uintptr_t)0);
+        pond[x][y].genome[i] = ~((uint64_t)0);
     }
   }
   
@@ -783,29 +791,29 @@ int main(int argc,char **argv)
   uint64_t cellIdCounter = 0;
   
   /* Miscellaneous variables used in the loop */
-  uintptr_t currentWord,wordPtr,shiftPtr,inst,tmp;
+  uint64_t currentWord,wordPtr,shiftPtr,inst,tmp;
   struct Cell *pptr,*tmpptr;
   
   /* Virtual machine memory pointer register (which
    * exists in two parts... read the code below...) */
-  uintptr_t ptr_wordPtr;
-  uintptr_t ptr_shiftPtr;
+  uint64_t ptr_wordPtr;
+  uint64_t ptr_shiftPtr;
   
   /* The main "register" */
-  uintptr_t reg;
+  uint64_t reg;
   
   /* Which way is the cell facing? */
-  uintptr_t facing;
+  uint64_t facing;
   
   /* Virtual machine loop/rep stack */
-  uintptr_t loopStack_wordPtr[POND_DEPTH];
-  uintptr_t loopStack_shiftPtr[POND_DEPTH];
-  uintptr_t loopStackPtr;
+  uint64_t loopStack_wordPtr[POND_DEPTH];
+  uint64_t loopStack_shiftPtr[POND_DEPTH];
+  uint64_t loopStackPtr;
   
   /* If this is nonzero, we're skipping to matching REP */
   /* It is incremented to track the depth of a nested set
    * of LOOP/REP pairs in false state. */
-  uintptr_t falseLoopDepth;
+  uint64_t falseLoopDepth;
   
   /* If this is nonzero, cell execution stops. This allows us
    * to avoid the ugly use of a goto to exit the loop. :) */
@@ -900,7 +908,7 @@ int main(int argc,char **argv)
 
     /* Reset the state of the VM prior to execution */
     for(i=0;i<POND_DEPTH_SYSWORDS;++i)
-      outputBuf[i] = ~((uintptr_t)0); /* ~0 == 0xfffff... */
+      outputBuf[i] = ~((uint64_t)0); /* ~0 == 0xfffff... */
     ptr_wordPtr = 0;
     ptr_shiftPtr = 0;
     reg = 0;
@@ -990,7 +998,7 @@ int main(int argc,char **argv)
             reg = (pptr->genome[ptr_wordPtr] >> ptr_shiftPtr) & 0xf;
             break;
           case 0x6: /* WRITEG: Write out from the register to genome */
-            pptr->genome[ptr_wordPtr] &= ~(((uintptr_t)0xf) << ptr_shiftPtr);
+            pptr->genome[ptr_wordPtr] &= ~(((uint64_t)0xf) << ptr_shiftPtr);
             pptr->genome[ptr_wordPtr] |= reg << ptr_shiftPtr;
             currentWord = pptr->genome[wordPtr]; /* Must refresh in case this changed! */
             break;
@@ -998,7 +1006,7 @@ int main(int argc,char **argv)
             reg = (outputBuf[ptr_wordPtr] >> ptr_shiftPtr) & 0xf;
             break;
           case 0x8: /* WRITEB: Write out from the register to buffer */
-            outputBuf[ptr_wordPtr] &= ~(((uintptr_t)0xf) << ptr_shiftPtr);
+            outputBuf[ptr_wordPtr] &= ~(((uint64_t)0xf) << ptr_shiftPtr);
             outputBuf[ptr_wordPtr] |= reg << ptr_shiftPtr;
             break;
           case 0x9: /* LOOP: Jump forward to matching REP if register is zero */
@@ -1036,7 +1044,7 @@ int main(int argc,char **argv)
             }
             tmp = reg;
             reg = (pptr->genome[wordPtr] >> shiftPtr) & 0xf;
-            pptr->genome[wordPtr] &= ~(((uintptr_t)0xf) << shiftPtr);
+            pptr->genome[wordPtr] &= ~(((uint64_t)0xf) << shiftPtr);
             pptr->genome[wordPtr] |= tmp << shiftPtr;
             currentWord = pptr->genome[wordPtr];
             break;
@@ -1047,8 +1055,8 @@ int main(int argc,char **argv)
                 ++statCounters.viableCellsKilled;
 
               /* Filling first two words with 0xfffff... is enough */
-              tmpptr->genome[0] = ~((uintptr_t)0);
-              tmpptr->genome[1] = ~((uintptr_t)0);
+              tmpptr->genome[0] = ~((uint64_t)0);
+              tmpptr->genome[1] = ~((uint64_t)0);
               tmpptr->ID = cellIdCounter;
               tmpptr->parentID = 0;
               tmpptr->lineage = cellIdCounter;
