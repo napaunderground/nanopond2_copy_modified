@@ -188,7 +188,7 @@
 /* Frequency of comprehensive reports-- lower values will provide more
  * info while slowing down the simulation. Higher values will give less
  * frequent updates. */
-#define REPORT_FREQUENCY (10 * TICK)
+//#define REPORT_FREQUENCY (10 * TICK)
 
 /* SDL refresh frequency */
 #define SDL_REFRESH_FREQUENCY (10 * TICK)
@@ -199,7 +199,7 @@
  * semi-human-readable if you look at the big switch() statement
  * in the main loop to see what instruction is signified by each
  * four-bit value. */
-#define DUMP_FREQUENCY (100 * TICK)
+//#define DUMP_FREQUENCY (10000 * TICK)
 
 /* Mutation rate -- range is from 0 (none) to 0xffffffff (all mutations!) */
 /* To get it from a float probability from 0.0 to 1.0, multiply it by
@@ -236,6 +236,10 @@
  * available and you must link with the SDL library when you compile. */
 /* Comment this out to compile without SDL visualization support. */
 #define USE_SDL 1
+
+/* Define this to use a fixed random number seed.  Comment out to use
+ * a time-based seed. */
+#define RANDON_NUMBER_SEED 13
 
 /* ----------------------------------------------------------------------- */
 
@@ -314,8 +318,13 @@ static unsigned long mt[N]; /* the array for the state vector  */
 static int mti=N+1; /* mti==N+1 means mt[N] is not initialized */
 
 /* initializes mt[N] with a seed */
-static void init_genrand(unsigned long s)
+static void init_genrand()
 {
+#ifdef RANDOM_NUMBER_SEED
+	unsigned long s = (RANDON_NUMBER_SEED);
+#else
+	unsigned long s = time(NULL);
+#endif
     mt[0]= s & 0xffffffffUL;
     for (mti=1; mti<N; mti++) {
         mt[mti] = 
@@ -466,6 +475,7 @@ struct PerReportStatCounters statCounters;
  *
  * @param clock Current clock
  */
+#ifdef REPORT_FREQUENCY
 static void doReport(const uint64_t clock)
 {
   static uint64_t lastTotalViableReplicators = 0;
@@ -535,12 +545,14 @@ static void doReport(const uint64_t clock)
   for(x=0;x<sizeof(statCounters);++x)
     ((uint8_t *)&statCounters)[x] = (uint8_t)0;
 }
+#endif //REPORT_FREQUENCY
 
 /**
  * Dumps all viable (generation > 2) cells to a file called <clock>.dump
  *
  * @param clock Clock value
  */
+#ifdef DUMP_FREQUENCY
 static void doDump(const uint64_t clock)
 {
   char buf[POND_DEPTH*2];
@@ -596,6 +608,7 @@ static void doDump(const uint64_t clock)
   
   fclose(d);
 }
+#endif //DUMP_FREQUENCY
 
 /**
  * Dumps the genome of a cell to a file.
@@ -751,7 +764,7 @@ int main(int argc,char **argv)
   uint64_t outputBuf[POND_DEPTH_SYSWORDS];
   
   /* Seed and init the random number generator */
-  init_genrand(time(NULL));
+  init_genrand();
   for(i=0;i<1024;++i)
     getRandom();
 
@@ -842,9 +855,13 @@ int main(int argc,char **argv)
 
     /* Increment clock and run reports periodically */
     /* Clock is incremented at the start, so it starts at 1 */
-    if (!(++clock % REPORT_FREQUENCY)) {
+    ++clock;
+
+#ifdef REPORT_FREQUENCY
+    if (!(clock % REPORT_FREQUENCY)) {
       doReport(clock);
     }
+#endif
       
 #ifdef USE_SDL
     /* Refresh the screen and check for input if SDL enabled */
