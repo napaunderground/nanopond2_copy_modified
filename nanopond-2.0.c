@@ -1035,174 +1035,194 @@ int main(int argc,char **argv)
 							ptr_shiftPtr = 0;
 						}
 						break;
-          case 0x2: /* BACK: Decrement the pointer (wrap at beginning) */
-            if (ptr_shiftPtr)
-              ptr_shiftPtr -= 4;
-            else {
-              if (ptr_wordPtr)
-                --ptr_wordPtr;
-              else ptr_wordPtr = POND_DEPTH_SYSWORDS - 1;
-              ptr_shiftPtr = SYSWORD_BITS - 4;
-            }
-            break;
-          case 0x3: /* INC: Increment the register */
-            reg = (reg + 1) & 0xf;
-            break;
-          case 0x4: /* DEC: Decrement the register */
-            reg = (reg - 1) & 0xf;
-            break;
-          case 0x5: /* READG: Read into the register from genome */
-            reg = (pptr->genome[ptr_wordPtr] >> ptr_shiftPtr) & 0xf;
-            break;
-          case 0x6: /* WRITEG: Write out from the register to genome */
-            pptr->genome[ptr_wordPtr] &= ~(((uint64_t)0xf) << ptr_shiftPtr);
-            pptr->genome[ptr_wordPtr] |= reg << ptr_shiftPtr;
-            currentWord = pptr->genome[wordPtr]; /* Must refresh in case this changed! */
-            break;
-          case 0x7: /* READB: Read into the register from buffer */
-            reg = (outputBuf[ptr_wordPtr] >> ptr_shiftPtr) & 0xf;
-            break;
-          case 0x8: /* WRITEB: Write out from the register to buffer */
-            outputBuf[ptr_wordPtr] &= ~(((uint64_t)0xf) << ptr_shiftPtr);
-            outputBuf[ptr_wordPtr] |= reg << ptr_shiftPtr;
-            break;
-          case 0x9: /* LOOP: Jump forward to matching REP if register is zero */
-            if (reg) {
-              if (loopStackPtr >= POND_DEPTH)
-                stop = 1; /* Stack overflow ends execution */
-              else {
-                loopStack_wordPtr[loopStackPtr] = wordPtr;
-                loopStack_shiftPtr[loopStackPtr] = shiftPtr;
-                ++loopStackPtr;
-              }
-            } else falseLoopDepth = 1;
-            break;
-          case 0xa: /* REP: Jump back to matching LOOP if register is nonzero */
-            if (loopStackPtr) {
-              --loopStackPtr;
-              if (reg) {
-                wordPtr = loopStack_wordPtr[loopStackPtr];
-                shiftPtr = loopStack_shiftPtr[loopStackPtr];
-                currentWord = pptr->genome[wordPtr];
-                /* This ensures that the LOOP is rerun */
-                continue;
-              }
-            }
-            break;
-          case 0xb: /* TURN: Turn in the direction specified by register */
-            facing = reg & 3;
-            break;
-          case 0xc: /* XCHG: Skip next instruction and exchange value of register with it */
-            if ((shiftPtr += 4) >= SYSWORD_BITS) {
-              if (++wordPtr >= POND_DEPTH_SYSWORDS) {
-                wordPtr = EXEC_START_WORD;
-                shiftPtr = EXEC_START_BIT;
-              } else shiftPtr = 0;
-            }
-            tmp = reg;
-            reg = (pptr->genome[wordPtr] >> shiftPtr) & 0xf;
-            pptr->genome[wordPtr] &= ~(((uint64_t)0xf) << shiftPtr);
-            pptr->genome[wordPtr] |= tmp << shiftPtr;
-            currentWord = pptr->genome[wordPtr];
-            break;
-          case 0xd: /* KILL: Blow away neighboring cell if allowed with penalty on failure */
-            tmpptr = getNeighbor(x,y,facing);
-            if (accessAllowed(tmpptr,reg,0)) {
-              if (tmpptr->generation > 2)
-                ++statCounters.viableCellsKilled;
+					case 0x2: /* BACK: Decrement the pointer (wrap at beginning) */
+						if (ptr_shiftPtr){
+							ptr_shiftPtr -= 4;
+						} else {
+							if (ptr_wordPtr){
+								--ptr_wordPtr;
+							} else {
+								ptr_wordPtr = POND_DEPTH_SYSWORDS - 1;
+							}
+							ptr_shiftPtr = SYSWORD_BITS - 4;
+						}
+						break;
+					case 0x3: /* INC: Increment the register */
+						reg = (reg + 1) & 0xf;
+						break;
+					case 0x4: /* DEC: Decrement the register */
+						reg = (reg - 1) & 0xf;
+						break;
+					case 0x5: /* READG: Read into the register from genome */
+						reg = (pptr->genome[ptr_wordPtr] >> ptr_shiftPtr) & 0xf;
+						break;
+					case 0x6: /* WRITEG: Write out from the register to genome */
+						pptr->genome[ptr_wordPtr] &= ~(((uint64_t)0xf) << ptr_shiftPtr);
+						pptr->genome[ptr_wordPtr] |= reg << ptr_shiftPtr;
+						currentWord = pptr->genome[wordPtr]; /* Must refresh in case this changed! */
+						break;
+					case 0x7: /* READB: Read into the register from buffer */
+						reg = (outputBuf[ptr_wordPtr] >> ptr_shiftPtr) & 0xf;
+						break;
+					case 0x8: /* WRITEB: Write out from the register to buffer */
+						outputBuf[ptr_wordPtr] &= ~(((uint64_t)0xf) << ptr_shiftPtr);
+						outputBuf[ptr_wordPtr] |= reg << ptr_shiftPtr;
+						break;
+					case 0x9: /* LOOP: Jump forward to matching REP if register is zero */
+						if (reg) {
+							if (loopStackPtr >= POND_DEPTH){
+								stop = 1; /* Stack overflow ends execution */
+							} else {
+								loopStack_wordPtr[loopStackPtr] = wordPtr;
+								loopStack_shiftPtr[loopStackPtr] = shiftPtr;
+								++loopStackPtr;
+							}
+						} else {
+							falseLoopDepth = 1;
+						}
+						break;
+					case 0xa: /* REP: Jump back to matching LOOP if register is nonzero */
+						if (loopStackPtr) {
+							--loopStackPtr;
+							if (reg) {
+								wordPtr = loopStack_wordPtr[loopStackPtr];
+								shiftPtr = loopStack_shiftPtr[loopStackPtr];
+								currentWord = pptr->genome[wordPtr];
+								/* This ensures that the LOOP is rerun */
+								continue;
+							}
+						}
+						break;
+					case 0xb: /* TURN: Turn in the direction specified by register */
+						facing = reg & 3;
+						break;
+					case 0xc: /* XCHG: Skip next instruction and exchange value of register with it */
+						if ((shiftPtr += 4) >= SYSWORD_BITS) {
+							if (++wordPtr >= POND_DEPTH_SYSWORDS) {
+								wordPtr = EXEC_START_WORD;
+								shiftPtr = EXEC_START_BIT;
+							} else {
+								shiftPtr = 0;
+							}
+						}
+						tmp = reg;
+						reg = (pptr->genome[wordPtr] >> shiftPtr) & 0xf;
+						pptr->genome[wordPtr] &= ~(((uint64_t)0xf) << shiftPtr);
+						pptr->genome[wordPtr] |= tmp << shiftPtr;
+						currentWord = pptr->genome[wordPtr];
+						break;
+					case 0xd: /* KILL: Blow away neighboring cell if allowed with penalty on failure */
+						tmpptr = getNeighbor(x,y,facing);
+						if (accessAllowed(tmpptr,reg,0)) {
+							if (tmpptr->generation > 2){
+								++statCounters.viableCellsKilled;
+							}
 
-              /* Filling first two words with 0xfffff... is enough */
-              tmpptr->genome[0] = ~((uint64_t)0);
-              tmpptr->genome[1] = ~((uint64_t)0);
-              tmpptr->ID = cellIdCounter;
-              tmpptr->parentID = 0;
-              tmpptr->lineage = cellIdCounter;
-              tmpptr->generation = 0;
-              ++cellIdCounter;
-            } else if (tmpptr->generation > 2) {
-              tmp = pptr->energy / FAILED_KILL_PENALTY;
-              if (pptr->energy > tmp)
-                pptr->energy -= tmp;
-              else pptr->energy = 0;
-            }
-            break;
-          case 0xe: /* SHARE: Equalize energy between self and neighbor if allowed */
-            tmpptr = getNeighbor(x,y,facing);
-            if (accessAllowed(tmpptr,reg,1)) {
-              if (tmpptr->generation > 2)
-                ++statCounters.viableCellShares;
+							/* Filling first two words with 0xfffff... is enough */
+							tmpptr->genome[0] = ~((uint64_t)0);
+							tmpptr->genome[1] = ~((uint64_t)0);
+							tmpptr->ID = cellIdCounter;
+							tmpptr->parentID = 0;
+							tmpptr->lineage = cellIdCounter;
+							tmpptr->generation = 0;
+							++cellIdCounter;
+						} else if (tmpptr->generation > 2) {
+							tmp = pptr->energy / FAILED_KILL_PENALTY;
+							if (pptr->energy > tmp){
+								pptr->energy -= tmp;
+							} else { 
+								pptr->energy = 0; 
+							}
+            					}
+						break;
+					case 0xe: /* SHARE: Equalize energy between self and neighbor if allowed */
+						tmpptr = getNeighbor(x,y,facing);
+						if (accessAllowed(tmpptr,reg,1)) {
+							if (tmpptr->generation > 2) {
+								++statCounters.viableCellShares;
+							}
 
-              tmp = pptr->energy + tmpptr->energy;
-              tmpptr->energy = tmp / 2;
-              pptr->energy = tmp - tmpptr->energy;
-            }
-            break;
-          case 0xf: /* STOP: End execution */
-            stop = 1;
-            break;
-        }
-      }
+							tmp = pptr->energy + tmpptr->energy;
+							tmpptr->energy = tmp / 2;
+							pptr->energy = tmp - tmpptr->energy;
+						}
+						break;
+					case 0xf: /* STOP: End execution */
+						stop = 1;
+						break;
+				}
+			}
       
-      /* Advance the shift and word pointers, and loop around
-       * to the beginning at the end of the genome. */
-      if ((shiftPtr += 4) >= SYSWORD_BITS) {
-        if (++wordPtr >= POND_DEPTH_SYSWORDS) {
-          wordPtr = EXEC_START_WORD;
-          shiftPtr = EXEC_START_BIT;
-        } else shiftPtr = 0;
-        currentWord = pptr->genome[wordPtr];
-      }
-    }
+			/* Advance the shift and word pointers, and loop around
+			* to the beginning at the end of the genome. */
+			if ((shiftPtr += 4) >= SYSWORD_BITS) {
+				if (++wordPtr >= POND_DEPTH_SYSWORDS) {
+					wordPtr = EXEC_START_WORD;
+					shiftPtr = EXEC_START_BIT;
+				} else { 
+					shiftPtr = 0; 
+				}
+				currentWord = pptr->genome[wordPtr];
+			}
+		}
     
-    /* Copy outputBuf into neighbor if access is permitted and there
-     * is energy there to make something happen. There is no need
-     * to copy to a cell with no energy, since anything copied there
-     * would never be executed and then would be replaced with random
-     * junk eventually. See the seeding code in the main loop above. */
-    if ((outputBuf[0] & 0xff) != 0xff) {
-      tmpptr = getNeighbor(x,y,facing);
-      if ((tmpptr->energy)&&accessAllowed(tmpptr,reg,0)) {
-        /* Log it if we're replacing a viable cell */
-        if (tmpptr->generation > 2)
-          ++statCounters.viableCellsReplaced;
+		/* Copy outputBuf into neighbor if access is permitted and there
+		* is energy there to make something happen. There is no need
+		* to copy to a cell with no energy, since anything copied there
+		* would never be executed and then would be replaced with random
+		* junk eventually. See the seeding code in the main loop above. */
+		if ((outputBuf[0] & 0xff) != 0xff) {
+			tmpptr = getNeighbor(x,y,facing);
+			if ((tmpptr->energy)&&accessAllowed(tmpptr,reg,0)) {
+				/* Log it if we're replacing a viable cell */
+				if (tmpptr->generation > 2) {
+					++statCounters.viableCellsReplaced;
+				}
         
-        tmpptr->ID = ++cellIdCounter;
-        tmpptr->parentID = pptr->ID;
-        tmpptr->lineage = pptr->lineage; /* Lineage is copied in offspring */
-        tmpptr->generation = pptr->generation + 1;
-        for(i=0;i<POND_DEPTH_SYSWORDS;++i)
-          tmpptr->genome[i] = outputBuf[i];
-      }
-    }
+				tmpptr->ID = ++cellIdCounter;
+				tmpptr->parentID = pptr->ID;
+				tmpptr->lineage = pptr->lineage; /* Lineage is copied in offspring */
+				tmpptr->generation = pptr->generation + 1;
+				for(i=0;i<POND_DEPTH_SYSWORDS;++i){
+					tmpptr->genome[i] = outputBuf[i];
+				}
+			}
+		}
 
-    /* Update the neighborhood on SDL screen to show any changes. */
+		/* Update the neighborhood on SDL screen to show any changes. */
 #ifdef USE_SDL
-    if (SDL_MUSTLOCK(screen))
-      SDL_LockSurface(screen);
-    ((uint8_t *)screen->pixels)[x + (y * sdlPitch)] = getColor(pptr);
-    if (x) {
-      ((uint8_t *)screen->pixels)[(x-1) + (y * sdlPitch)] = getColor(&pond[x-1][y]);
-      if (x < (POND_SIZE_X-1))
-        ((uint8_t *)screen->pixels)[(x+1) + (y * sdlPitch)] = getColor(&pond[x+1][y]);
-      else ((uint8_t *)screen->pixels)[y * sdlPitch] = getColor(&pond[0][y]);
-    } else {
-      ((uint8_t *)screen->pixels)[(POND_SIZE_X-1) + (y * sdlPitch)] = getColor(&pond[POND_SIZE_X-1][y]);
-      ((uint8_t *)screen->pixels)[1 + (y * sdlPitch)] = getColor(&pond[1][y]);
-    }
-    if (y) {
-      ((uint8_t *)screen->pixels)[x + ((y-1) * sdlPitch)] = getColor(&pond[x][y-1]);
-      if (y < (POND_SIZE_Y-1))
-        ((uint8_t *)screen->pixels)[x + ((y+1) * sdlPitch)] = getColor(&pond[x][y+1]);
-      else ((uint8_t *)screen->pixels)[x] = getColor(&pond[x][0]);
-    } else {
-      ((uint8_t *)screen->pixels)[x + ((POND_SIZE_Y-1) * sdlPitch)] = getColor(&pond[x][POND_SIZE_Y-1]);
-      ((uint8_t *)screen->pixels)[x + sdlPitch] = getColor(&pond[x][1]);
-    }
-    if (SDL_MUSTLOCK(screen))
-      SDL_UnlockSurface(screen);
+		if (SDL_MUSTLOCK(screen)){
+			SDL_LockSurface(screen);
+		}
+		((uint8_t *)screen->pixels)[x + (y * sdlPitch)] = getColor(pptr);
+		if (x) {
+			((uint8_t *)screen->pixels)[(x-1) + (y * sdlPitch)] = getColor(&pond[x-1][y]);
+			if (x < (POND_SIZE_X-1)) {
+				((uint8_t *)screen->pixels)[(x+1) + (y * sdlPitch)] = getColor(&pond[x+1][y]);
+			} else {
+				((uint8_t *)screen->pixels)[y * sdlPitch] = getColor(&pond[0][y]);
+			}
+		} else {
+			((uint8_t *)screen->pixels)[(POND_SIZE_X-1) + (y * sdlPitch)] = getColor(&pond[POND_SIZE_X-1][y]);
+			((uint8_t *)screen->pixels)[1 + (y * sdlPitch)] = getColor(&pond[1][y]);
+		}
+		if (y) {
+			((uint8_t *)screen->pixels)[x + ((y-1) * sdlPitch)] = getColor(&pond[x][y-1]);
+			if (y < (POND_SIZE_Y-1)){
+				((uint8_t *)screen->pixels)[x + ((y+1) * sdlPitch)] = getColor(&pond[x][y+1]);
+			} else { 
+				((uint8_t *)screen->pixels)[x] = getColor(&pond[x][0]);
+			}
+		} else {
+				((uint8_t *)screen->pixels)[x + ((POND_SIZE_Y-1) * sdlPitch)] = getColor(&pond[x][POND_SIZE_Y-1]);
+				((uint8_t *)screen->pixels)[x + sdlPitch] = getColor(&pond[x][1]);
+		}
+		if (SDL_MUSTLOCK(screen)){
+			SDL_UnlockSurface(screen);
+		}
 #endif /* USE_SDL */
-  }
+	}
   
-  exit(0);
-  return 0; /* Make compiler shut up */
+	exit(0);
+	return 0; /* Make compiler shut up */
 }
