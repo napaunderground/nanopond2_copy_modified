@@ -487,14 +487,14 @@ static void doReport(const uint64_t clock)
   /* Look here to get the columns in the CSV output */
   
   /* The first five are here and are self-explanatory */
-  printf("%" PRIu64  "," /* clock */				\
-	 "%" PRIu64  "," /* totalEnergy */			\
-	 "%" PRIu64  "," /* totalActiveCells */			\
-	 "%" PRIu64  "," /* totalViableReplicators */		\
-	 "%" PRIuPTR "," /* maxGeneration */			\
-	 "%" PRIuPTR "," /* statCounters.viableCellsReplaced */	\
-	 "%" PRIuPTR "," /* statCounters.viableCellsKilled */	\
-	 "%" PRIuPTR ",",/* statCounters.viableCellShares */	\
+  printf("%" PRIu64 "," /* clock */				\
+	 "%" PRIu64 "," /* totalEnergy */			\
+	 "%" PRIu64 "," /* totalActiveCells */			\
+	 "%" PRIu64 "," /* totalViableReplicators */		\
+	 "%" PRIu64 "," /* maxGeneration */			\
+	 "%" PRIu64 "," /* statCounters.viableCellsReplaced */	\
+	 "%" PRIu64 "," /* statCounters.viableCellsKilled */	\
+	 "%" PRIu64 ",",/* statCounters.viableCellShares */	\
 	    clock,
 	    totalEnergy,
 	    totalActiveCells,
@@ -541,7 +541,7 @@ static void doDump(const uint64_t clock)
   uint64_t x,y,wordPtr,shiftPtr,inst,stopCount,i;
   struct Cell *pptr;
   
-  sprintf(buf,"%llu.dump.csv",clock);
+  sprintf(buf,"%" PRIu64 ".dump.csv",clock);
   d = fopen(buf,"w");
   if (!d) {
     fprintf(stderr,"[WARNING] Could not open %s for writing.\n",buf);
@@ -554,11 +554,11 @@ static void doDump(const uint64_t clock)
     for(y=0;y<POND_SIZE_Y;++y) {
       pptr = &pond[x][y];
       if (pptr->energy&&(pptr->generation > 2)) {
-        fprintf(d,"%llu,%llu,%llu,%llu,",
-          (uint64_t)pptr->ID,
-          (uint64_t)pptr->parentID,
-          (uint64_t)pptr->lineage,
-          (uint64_t)pptr->generation);
+        fprintf(d,"%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",",
+          pptr->ID,
+          pptr->parentID,
+          pptr->lineage,
+          pptr->generation);
         wordPtr = 0;
         shiftPtr = 0;
         stopCount = 0;
@@ -570,7 +570,7 @@ static void doDump(const uint64_t clock)
            * a LOOP/REP pair that's always false. In any case, this
            * would always result in our *underestimating* the size of
            * the genome and would never result in an overestimation. */
-          fprintf(d,"%x",inst);
+          fprintf(d,"%" PRIu64,inst);
           if (inst == 0xf) { /* STOP */
             if (++stopCount >= 4)
               break;
@@ -612,7 +612,7 @@ static void dumpCell(FILE *file, struct Cell *cell)
        * a LOOP/REP pair that's always false. In any case, this
        * would always result in our *underestimating* the size of
        * the genome and would never result in an overestimation. */
-      fprintf(file,"%x",inst);
+      fprintf(file,"%" PRIu64,inst);
       if (inst == 0xf) { /* STOP */
         if (++stopCount >= 4)
           break;
