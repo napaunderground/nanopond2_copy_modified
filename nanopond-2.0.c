@@ -566,7 +566,7 @@ static void doDump(const uint64_t clock)
 	char buf[POND_DEPTH*2];
 	FILE *d;
 	uint64_t x,y,wordPtr,shiftPtr,inst,stopCount,i;
-	struct Cell *pptr;
+	struct Cell *cell;
   
 	sprintf(buf,"%" PRIu64 ".dump.csv",clock);
 	d = fopen(buf,"w");
@@ -579,18 +579,18 @@ static void doDump(const uint64_t clock)
   
 	for(x=0;x<POND_SIZE_X;++x) {
 		for(y=0;y<POND_SIZE_Y;++y) {
-			pptr = &pond[x][y];
-			if (pptr->energy&&(pptr->generation > 2)) {
+			cell = &pond[x][y];
+			if (cell->energy&&(cell->generation > 2)) {
 				fprintf(d,"%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",%" PRIu64 ",",
-					pptr->ID,
-					pptr->parentID,
-					pptr->lineage,
-					pptr->generation);
+					cell->ID,
+					cell->parentID,
+					cell->lineage,
+					cell->generation);
 				wordPtr = 0;
 				shiftPtr = 0;
 				stopCount = 0;
 				for(i=0;i<POND_DEPTH;++i) {
-					inst = (pptr->genome[wordPtr] >> shiftPtr) & 0xf;
+					inst = (cell->genome[wordPtr] >> shiftPtr) & 0xf;
 					/* Four STOP instructions in a row is considered the end.
 					* The probability of this being wrong is *very* small, and
 					* could only occur if you had four STOPs in a row inside
@@ -831,7 +831,7 @@ int main(int argc,char **argv)
   
 	/* Miscellaneous variables used in the loop */
 	uint64_t currentWord,wordPtr,shiftPtr,inst,tmp;
-	struct Cell *pptr,*tmpptr;
+	struct Cell *cell,*tmcell;
   
 	/* Virtual machine memory pointer register (which
 	* exists in two parts... read the code below...) */
@@ -924,18 +924,18 @@ int main(int argc,char **argv)
 		if (!(clock % INFLOW_FREQUENCY)) {
 			x = getRandom() % POND_SIZE_X;
 			y = getRandom() % POND_SIZE_Y;
-			pptr = &pond[x][y];
-			pptr->ID = cellIdCounter;
-			pptr->parentID = 0;
-			pptr->lineage = cellIdCounter;
-			pptr->generation = 0;
+			cell = &pond[x][y];
+			cell->ID = cellIdCounter;
+			cell->parentID = 0;
+			cell->lineage = cellIdCounter;
+			cell->generation = 0;
 #ifdef INFLOW_RATE_VARIATION
-			pptr->energy += INFLOW_RATE_BASE + (getRandom() % INFLOW_RATE_VARIATION);
+			cell->energy += INFLOW_RATE_BASE + (getRandom() % INFLOW_RATE_VARIATION);
 	#else
-			pptr->energy += INFLOW_RATE_BASE;
+			cell->energy += INFLOW_RATE_BASE;
 #endif /* INFLOW_RATE_VARIATION */
 			for(i=0;i<POND_DEPTH_SYSWORDS;++i){
-				pptr->genome[i] = getRandom();
+				cell->genome[i] = getRandom();
 			}
 			++cellIdCounter;
       
@@ -944,7 +944,7 @@ int main(int argc,char **argv)
 			if (SDL_MUSTLOCK(screen)){
 				SDL_LockSurface(screen);
 			}
-			((uint8_t *)screen->pixels)[x + (y * sdlPitch)] = getColor(pptr);
+			((uint8_t *)screen->pixels)[x + (y * sdlPitch)] = getColor(cell);
 			if (SDL_MUSTLOCK(screen)){
 				SDL_UnlockSurface(screen);
 			}
@@ -954,7 +954,7 @@ int main(int argc,char **argv)
 		/* Pick a random cell to execute */
 		x = getRandom() % POND_SIZE_X;
 		y = getRandom() % POND_SIZE_Y;
-		pptr = &pond[x][y];
+		cell = &pond[x][y];
 
 		/* Reset the state of the VM prior to execution */
 		for(i=0;i<POND_DEPTH_SYSWORDS;++i){
@@ -976,13 +976,13 @@ int main(int argc,char **argv)
 		 * inner loop. We have to be careful to refresh this
 		 * whenever it might have changed... take a look at
 		 * the code. :) */
-		currentWord = pptr->genome[0];
+		currentWord = cell->genome[0];
     
 		/* Keep track of how many cells have been executed */
 		statCounters.cellExecutions += 1.0;
 
 		/* Core execution loop */
-		while (pptr->energy&&(!stop)) {
+		while (cell->energy&&(!stop)) {
 			/* Get the next instruction */
 			inst = (currentWord >> shiftPtr) & 0xf;
       
@@ -1002,7 +1002,7 @@ int main(int argc,char **argv)
 			}
       
 			/* Each instruction processed costs one unit of energy */
-			--pptr->energy;
+			--cell->energy;
       
 			/* Execute the instruction */
 			if (falseLoopDepth) {
@@ -1054,12 +1054,12 @@ int main(int argc,char **argv)
 						reg = (reg - 1) & 0xf;
 						break;
 					case 0x5: /* READG: Read into the register from genome */
-						reg = (pptr->genome[ptr_wordPtr] >> ptr_shiftPtr) & 0xf;
+						reg = (cell->genome[ptr_wordPtr] >> ptr_shiftPtr) & 0xf;
 						break;
 					case 0x6: /* WRITEG: Write out from the register to genome */
-						pptr->genome[ptr_wordPtr] &= ~(((uint64_t)0xf) << ptr_shiftPtr);
-						pptr->genome[ptr_wordPtr] |= reg << ptr_shiftPtr;
-						currentWord = pptr->genome[wordPtr]; /* Must refresh in case this changed! */
+						cell->genome[ptr_wordPtr] &= ~(((uint64_t)0xf) << ptr_shiftPtr);
+						cell->genome[ptr_wordPtr] |= reg << ptr_shiftPtr;
+						currentWord = cell->genome[wordPtr]; /* Must refresh in case this changed! */
 						break;
 					case 0x7: /* READB: Read into the register from buffer */
 						reg = (outputBuf[ptr_wordPtr] >> ptr_shiftPtr) & 0xf;
@@ -1087,7 +1087,7 @@ int main(int argc,char **argv)
 							if (reg) {
 								wordPtr = loopStack_wordPtr[loopStackPtr];
 								shiftPtr = loopStack_shiftPtr[loopStackPtr];
-								currentWord = pptr->genome[wordPtr];
+								currentWord = cell->genome[wordPtr];
 								/* This ensures that the LOOP is rerun */
 								continue;
 							}
@@ -1106,45 +1106,45 @@ int main(int argc,char **argv)
 							}
 						}
 						tmp = reg;
-						reg = (pptr->genome[wordPtr] >> shiftPtr) & 0xf;
-						pptr->genome[wordPtr] &= ~(((uint64_t)0xf) << shiftPtr);
-						pptr->genome[wordPtr] |= tmp << shiftPtr;
-						currentWord = pptr->genome[wordPtr];
+						reg = (cell->genome[wordPtr] >> shiftPtr) & 0xf;
+						cell->genome[wordPtr] &= ~(((uint64_t)0xf) << shiftPtr);
+						cell->genome[wordPtr] |= tmp << shiftPtr;
+						currentWord = cell->genome[wordPtr];
 						break;
 					case 0xd: /* KILL: Blow away neighboring cell if allowed with penalty on failure */
-						tmpptr = getNeighbor(x,y,facing);
-						if (accessAllowed(tmpptr,reg,0)) {
-							if (tmpptr->generation > 2){
+						tmcell = getNeighbor(x,y,facing);
+						if (accessAllowed(tmcell,reg,0)) {
+							if (tmcell->generation > 2){
 								++statCounters.viableCellsKilled;
 							}
 
 							/* Filling first two words with 0xfffff... is enough */
-							tmpptr->genome[0] = ~((uint64_t)0);
-							tmpptr->genome[1] = ~((uint64_t)0);
-							tmpptr->ID = cellIdCounter;
-							tmpptr->parentID = 0;
-							tmpptr->lineage = cellIdCounter;
-							tmpptr->generation = 0;
+							tmcell->genome[0] = ~((uint64_t)0);
+							tmcell->genome[1] = ~((uint64_t)0);
+							tmcell->ID = cellIdCounter;
+							tmcell->parentID = 0;
+							tmcell->lineage = cellIdCounter;
+							tmcell->generation = 0;
 							++cellIdCounter;
-						} else if (tmpptr->generation > 2) {
-							tmp = pptr->energy / FAILED_KILL_PENALTY;
-							if (pptr->energy > tmp){
-								pptr->energy -= tmp;
+						} else if (tmcell->generation > 2) {
+							tmp = cell->energy / FAILED_KILL_PENALTY;
+							if (cell->energy > tmp){
+								cell->energy -= tmp;
 							} else { 
-								pptr->energy = 0; 
+								cell->energy = 0; 
 							}
             					}
 						break;
 					case 0xe: /* SHARE: Equalize energy between self and neighbor if allowed */
-						tmpptr = getNeighbor(x,y,facing);
-						if (accessAllowed(tmpptr,reg,1)) {
-							if (tmpptr->generation > 2) {
+						tmcell = getNeighbor(x,y,facing);
+						if (accessAllowed(tmcell,reg,1)) {
+							if (tmcell->generation > 2) {
 								++statCounters.viableCellShares;
 							}
 
-							tmp = pptr->energy + tmpptr->energy;
-							tmpptr->energy = tmp / 2;
-							pptr->energy = tmp - tmpptr->energy;
+							tmp = cell->energy + tmcell->energy;
+							tmcell->energy = tmp / 2;
+							cell->energy = tmp - tmcell->energy;
 						}
 						break;
 					case 0xf: /* STOP: End execution */
@@ -1162,7 +1162,7 @@ int main(int argc,char **argv)
 				} else { 
 					shiftPtr = 0; 
 				}
-				currentWord = pptr->genome[wordPtr];
+				currentWord = cell->genome[wordPtr];
 			}
 		}
     
@@ -1172,19 +1172,19 @@ int main(int argc,char **argv)
 		* would never be executed and then would be replaced with random
 		* junk eventually. See the seeding code in the main loop above. */
 		if ((outputBuf[0] & 0xff) != 0xff) {
-			tmpptr = getNeighbor(x,y,facing);
-			if ((tmpptr->energy)&&accessAllowed(tmpptr,reg,0)) {
+			tmcell = getNeighbor(x,y,facing);
+			if ((tmcell->energy)&&accessAllowed(tmcell,reg,0)) {
 				/* Log it if we're replacing a viable cell */
-				if (tmpptr->generation > 2) {
+				if (tmcell->generation > 2) {
 					++statCounters.viableCellsReplaced;
 				}
         
-				tmpptr->ID = ++cellIdCounter;
-				tmpptr->parentID = pptr->ID;
-				tmpptr->lineage = pptr->lineage; /* Lineage is copied in offspring */
-				tmpptr->generation = pptr->generation + 1;
+				tmcell->ID = ++cellIdCounter;
+				tmcell->parentID = cell->ID;
+				tmcell->lineage = cell->lineage; /* Lineage is copied in offspring */
+				tmcell->generation = cell->generation + 1;
 				for(i=0;i<POND_DEPTH_SYSWORDS;++i){
-					tmpptr->genome[i] = outputBuf[i];
+					tmcell->genome[i] = outputBuf[i];
 				}
 			}
 		}
@@ -1194,7 +1194,7 @@ int main(int argc,char **argv)
 		if (SDL_MUSTLOCK(screen)){
 			SDL_LockSurface(screen);
 		}
-		((uint8_t *)screen->pixels)[x + (y * sdlPitch)] = getColor(pptr);
+		((uint8_t *)screen->pixels)[x + (y * sdlPitch)] = getColor(cell);
 		if (x) {
 			((uint8_t *)screen->pixels)[(x-1) + (y * sdlPitch)] = getColor(&pond[x-1][y]);
 			if (x < (POND_SIZE_X-1)) {
